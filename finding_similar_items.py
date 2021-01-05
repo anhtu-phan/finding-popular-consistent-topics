@@ -1,5 +1,7 @@
 import pandas as pd
 import re
+import os
+from numpy import asarray, save, load
 
 
 def get_stop_words():
@@ -31,41 +33,49 @@ def pre_process(path):
 
 
 def get_data(path):
-    df = pd.read_csv(path)
+    df = pd.read_csv(path, delimiter=",")
     tran = []
-    for _, row in df.iterrows():
-        tran.append(row['text_processed'].split())
+    try:
+        for _, row in df.iterrows():
+            tran.append(row['text_processed'].split())
+    except Exception as e:
+        print(row)
+        raise e
     return tran
 
 
-def write_result(file_name, rules, min_length=2):
+def write_result(file_name, item_set, rules):
     with open(file_name, "w") as f:
+        for num, se in item_set.items():
+            for s in se:
+                f.write(str(s)+"\n")
+            f.write("=======================================\n")
         for item in rules:
-            # first index of the inner list
-            # Contains base item and add item
-            pair = item[0]
-            items = [x for x in pair]
-            if len(items) < min_length:
-                continue
-            f.write("Rule: " + str(items[0]) + " -> " + str(items[1]) + " ("+", ".join(items)+")\n")
+            f.write(str(item[0]) + " -> " + str(item[1]) + ": "+str(item[2])+"\n")
 
-            # second index of the inner list
-            f.write("Support: " + str(item[1]) + "\n")
 
-            # third index of the list located at 0th
-            # of the third index of the inner list
+def main():
+    from apriori_python import apriori
+    if not os.path.exists('./dataset/covid19_tweets_processed.csv'):
+        print("Running pre process data ...")
+        data_path = './dataset/covid19_tweets.csv'
+        pre_process(data_path)
 
-            f.write("Confidence: " + str(item[2][0][2]) + "\n")
-            f.write("Lift: " + str(item[2][0][3]) + "\n")
-            f.write("=====================================\n")
+    saved_data_path = './dataset/apriori/data.npy'
+    if not os.path.exists(saved_data_path):
+        print("Getting data ...")
+        data_path = './dataset/covid19_tweets_processed.csv'
+        transactions = asarray(get_data(data_path))
+        save(saved_data_path, transactions)
+    else:
+        print("Load data ...")
+        transactions = load(saved_data_path, allow_pickle=True)
+
+    print("Running apriori ...")
+    item_set, rules = apriori(transactions, minSup=0.5, minConf=0.5)
+    print("Writing result ...")
+    write_result("./output/apriori/result_v2.txt", item_set, rules)
 
 
 if __name__ == '__main__':
-    from apyori import apriori
-    data_path = './dataset/covid19_tweets.csv'
-    pre_process(data_path)
-    data_path = './dataset/covid19_tweets_processed.csv'
-    transactions = get_data(data_path)
-    result = apriori(transactions, min_support=0.001)
-    list_result = list(result)
-    write_result("./output/apriori/result_support_001.txt", result, min_length=2)
+    main()
