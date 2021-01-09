@@ -2,6 +2,8 @@ import pandas as pd
 import re
 import os
 from numpy import asarray, save, load
+import time
+from datetime import datetime
 
 
 def get_stop_words():
@@ -44,14 +46,13 @@ def get_data(path):
     return tran
 
 
-def write_result(file_name, item_set, rules):
-    with open(file_name, "w") as f:
-        for num, se in item_set.items():
-            for s in se:
-                f.write(str(s)+"\n")
-            f.write("=======================================\n")
-        for item in rules:
-            f.write(str(item[0]) + " -> " + str(item[1]) + ": "+str(item[2])+"\n")
+def write_result(f, item_set, rules):
+    for num, se in item_set.items():
+        for s in se:
+            f.write(str(s) + "\n")
+        f.write("=======================================\n")
+    for item in rules:
+        f.write(str(item[0]) + " -> " + str(item[1]) + ": " + str(item[2]) + "\n")
 
 
 def main():
@@ -71,10 +72,20 @@ def main():
         print("Load data ...")
         transactions = load(saved_data_path, allow_pickle=True)
 
+    min_sup = 0.01
+    min_conf = 0.01
+    file_name = "./output/apriori/result_v2_" + str(min_sup) + "_" + str(min_conf) + ".txt"
     print("Running apriori ...")
-    item_set, rules = apriori(transactions, minSup=0.5, minConf=0.5)
-    print("Writing result ...")
-    write_result("./output/apriori/result_v2.txt", item_set, rules)
+    with open(file_name, "w") as f:
+        f.write("Start time:"+str(datetime.now())+"\n")
+        start_time = time.time()
+        item_set, rules = apriori(transactions, minSup=min_sup, minConf=min_conf)
+        elapsed_time = time.time() - start_time
+        f.write("End time:" + str(datetime.now()) + "\n")
+        f.write("Time execute: " + str(elapsed_time) + "\n")
+        f.write("=======================================\n")
+        print("Writing result ...")
+        write_result(f, item_set, rules)
 
 
 if __name__ == '__main__':

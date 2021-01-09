@@ -39,35 +39,76 @@ def lemmatize_stemming(text):
     return stemmer.stem(WordNetLemmatizer().lemmatize(text, pos='v'))
 
 
-def preprocess(text):
+def preprocess_url(text, type_pre='REPLACE'):
     regex = r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
-    text = re.sub(regex, '#href_link', text)
-    accounts = [t for t in text.split() if t.startswith('@')]
-    for acc in accounts:
-        if acc not in twitter_accounts:
-            text = text.replace(acc, "twitter_account")
+    if type_pre == 'REPLACE':
+        text = re.sub(regex, '#href_link', text)
+    else:
+        text = re.sub(regex, '', text)
+    return text
+
+
+def preprocess_twitter_account(text, type_pre='REPLACE'):
+    texts = text.split()
+    accounts = [(i, t) for i, t in enumerate(texts) if t.startswith('@')]
+    for index, acc in accounts:
+        if type_pre == 'REPLACE':
+            if acc not in twitter_accounts:
+                texts[index] = "twitter_account"
+        else:
+            texts[index] = ""
+    return " ".join(texts)
+
+
+def preprocess(text, types_pre: list() = ['REMOVE', 'REMOVE']):
+    if types_pre[0] is not None:
+        text = preprocess_url(text, type_pre=types_pre[0])
+    if types_pre[1] is not None:
+        text = preprocess_twitter_account(text, type_pre=types_pre[1])
 
     result = []
     for token in simple_preprocess(text):
         if token not in STOPWORDS:
             result.append(lemmatize_stemming(token))
-    return result
+    return " ".join(result)
 
 
 def main():
     documents = pd.read_csv("./dataset/covid19_tweets.csv")
     print("len doc = ", len(documents))
-    processed_docs = documents['text'].map(preprocess)
-    print("len processed_docs = ", len(processed_docs))
-    processed_text = {"text_processed": list()}
-    for doc in processed_docs:
-        processed_text['text_processed'].append(" ".join(doc))
+    remove_url = documents['text'].apply(preprocess, args=(['REMOVE', None],))
+    remove_twitter_account = documents['text'].apply(preprocess, args=(['REMOVE', 'REMOVE'],))
+    remove_url_replace_twitter_account = documents['text'].apply(preprocess, args=(['REMOVE', 'REPLACE'],))
+    remove_twitter_account_replace_url = documents['text'].apply(preprocess, args=(['REPLACE', 'REMOVE'],))
+    replace_twitter_account_and_url = documents['text'].apply(preprocess, args=(['REPLACE', 'REPLACE'],))
+    processed_text = {"text": documents['text'],
+                      "remove_url": remove_url, "remove_twitter_account": remove_twitter_account,
+                      "remove_url_replace_twitter_account": remove_url_replace_twitter_account,
+                      "remove_twitter_account_replace_url": remove_twitter_account_replace_url,
+                      "replace_twitter_account_and_url": replace_twitter_account_and_url}
+
     df = pd.DataFrame(processed_text)
-    df.to_csv("./dataset/covid19_tweets_processed.csv")
-    processed_text['text'] = documents['text']
-    df = pd.DataFrame(processed_text)
+    print("len processed_text = ", len(df))
     df.to_csv("./dataset/covid19_tweets_processed_full.csv")
+    df = df.drop(["text"], axis=1)
+    df.to_csv("./dataset/covid19_tweets_processed.csv")
 
 
 if __name__ == '__main__':
-    main()
+    # main()
+    text = "Hey @Yankees @YankeesPR and @MLB - wouldn't it have made more sense to have the players pay their respects to the A… https://t.co/1QvW0zgyPu"
+    text2 = simple_preprocess(text)
+    print("text2", text2)
+    text3 = []
+    for token in text2:
+        text3.append(WordNetLemmatizer().lemmatize(token, pos='v'))
+    print("text3", text3)
+    text4 = []
+    for token in text3:
+        text4.append(stemmer.stem(token))
+    print("text4", text4)
+    text5 = []
+    for token in text4:
+        if token not in STOPWORDS:
+            text5.append(token)
+    print(text5)
