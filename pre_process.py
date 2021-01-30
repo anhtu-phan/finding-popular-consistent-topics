@@ -73,7 +73,7 @@ def preprocess(text, types_pre: list() = ['REMOVE', 'REMOVE']):
     return " ".join(result)
 
 
-def main():
+def process():
     documents = pd.read_csv("./dataset/covid19_tweets.csv")
     print("len doc = ", len(documents))
     remove_url = documents['text'].apply(preprocess, args=(['REMOVE', None],))
@@ -81,34 +81,15 @@ def main():
     remove_url_replace_twitter_account = documents['text'].apply(preprocess, args=(['REMOVE', 'REPLACE'],))
     remove_twitter_account_replace_url = documents['text'].apply(preprocess, args=(['REPLACE', 'REMOVE'],))
     replace_twitter_account_and_url = documents['text'].apply(preprocess, args=(['REPLACE', 'REPLACE'],))
-    processed_text = {"text": documents['text'],
-                      "remove_url": remove_url, "remove_twitter_account": remove_twitter_account,
+    processed_text = {"date": documents["date"], "remove_url": remove_url, "remove_twitter_account": remove_twitter_account,
                       "remove_url_replace_twitter_account": remove_url_replace_twitter_account,
                       "remove_twitter_account_replace_url": remove_twitter_account_replace_url,
                       "replace_twitter_account_and_url": replace_twitter_account_and_url}
 
     df = pd.DataFrame(processed_text)
     print("len processed_text = ", len(df))
-    df.to_csv("./dataset/covid19_tweets_processed_full.csv")
-    df = df.drop(["text"], axis=1)
     df.to_csv("./dataset/covid19_tweets_processed.csv")
 
 
 if __name__ == '__main__':
-    # main()
-    text = "Hey @Yankees @YankeesPR and @MLB - wouldn't it have made more sense to have the players pay their respects to the A… https://t.co/1QvW0zgyPu"
-    text2 = simple_preprocess(text)
-    print("text2", text2)
-    text3 = []
-    for token in text2:
-        text3.append(WordNetLemmatizer().lemmatize(token, pos='v'))
-    print("text3", text3)
-    text4 = []
-    for token in text3:
-        text4.append(stemmer.stem(token))
-    print("text4", text4)
-    text5 = []
-    for token in text4:
-        if token not in STOPWORDS:
-            text5.append(token)
-    print(text5)
+    process()
