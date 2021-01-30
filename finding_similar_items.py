@@ -93,21 +93,6 @@ def get_time_range(item_sets):
 
 
 @profile
-def run_fpgrowth(transactions):
-    return fpgrowth(transactions, minSupRatio=min_sup, minConf=min_conf)
-
-
-@profile
-def run_pcy(transactions):
-    return pcy(transactions, min_sup, 50)
-
-
-@profile
-def run_apriori(transactions):
-    return apriori(transactions, min_sup, min_conf)
-
-
-@profile
 def main():
     if not os.path.exists('./dataset/covid19_tweets_processed.csv'):
         print("Running pre process data ...")
@@ -131,7 +116,7 @@ def main():
             run_time = time.time() - start_time
         elif alg == "apriori":
             start_time = time.time()
-            itemSets, rules = run_apriori(transactions)
+            itemSets, rules = apriori(transactions, min_sup, min_conf)
             run_time = time.time() - start_time
             freqItemSet = []
             for num, item_set in itemSets.items():
@@ -139,7 +124,7 @@ def main():
                     freqItemSet += item_set
         else:
             start_time = time.time()
-            result = run_pcy(transactions)
+            result = pcy(transactions, min_sup, 50)
             run_time = time.time() - start_time
             freqItemSet = []
             for num, val in result.items():
