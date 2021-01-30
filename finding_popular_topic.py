@@ -1,59 +1,27 @@
-import os
 import time
 import pre_process
-import pandas as pd
-from GSDMM.GSDMM import GSDMM
+from gensim import corpora, models
+import gensim
 
 
-ALG = "GSDMM"
+ALG = "LDA"
 PRE_PROCESS_TYPE = 'remove_twitter_account'
 
 
-def build_gsdmm_input(token_path, vocab_path):
-    dataset = pd.read_csv("./dataset/covid19_tweets_processed_sort_by_date.csv")
-    if not os.path.exists(token_path):
-        vocab_id = 0
-        vocab = {}
-        f_token = open(token_path, "w")
-        f_vocab = open(vocab_path, "w")
-        for index, row in dataset.iterrows():
-            tweet = row[PRE_PROCESS_TYPE]
-            if not (pd.isna(tweet) or pd.isnull(tweet) or tweet == ""):
-                token_ids = []
-                for word in tweet.split():
-                    if word in vocab:
-                        token_ids.append(str(vocab[word]))
-                    else:
-                        token_ids.append(str(vocab_id))
-                        vocab[word] = vocab_id
-                        f_vocab.write('["' + word + '", ' + str(vocab_id) + "]\n")
-                        vocab_id += 1
-                f_token.write('"docid": {}, "tokenids": [{}]\n'.format(index, ",".join(token_ids)))
-        f_token.close()
-        f_vocab.close()
+def run_lda():
+    processed_docs = pre_process.get_input(PRE_PROCESS_TYPE)
+    dictionary = gensim.corpora.Dictionary(processed_docs)
+    dictionary.filter_extremes(no_below=15, no_above=0.5, keep_n=100000)
+    bow_corpus = [dictionary.doc2bow(doc) for doc in processed_docs]
 
+    tfidf = models.TfidfModel(bow_corpus)
+    corpus_tfidf = tfidf[bow_corpus]
 
-def run_gsdmm():
-    token_path = "./dataset/GSDMM/"+PRE_PROCESS_TYPE+"_tokens.json"
-    vocab_path = "./dataset/GSDMM/"+PRE_PROCESS_TYPE+"_vocab.json"
-    build_gsdmm_input(token_path, vocab_path)
-    model = GSDMM(token_path, vocab_path, n_iterations=100)
+    lda_model = gensim.models.LdaMulticore(bow_corpus, num_topics=10, id2word=dictionary, passes=2, workers=2)
 
-    model.inference()
+    for idx, topic in lda_model.print_topics(-1):
+        print('Topic: {} \nWords: {}'.format(idx, topic))
 
-    model.write_topic_assignments("./output/"+ALG+"/topic-assignments.json")
-    model.write_topic_top_words("./output/"+ALG+"/topic-top-20-words.txt")
-
-
-def run():
-    if not os.path.exists('./dataset/covid19_tweets_processed.csv'):
-        print("Running pre process data ...")
-        pre_process.process()
-
-    if ALG == "GSDMM":
-        start_time = time.time()
-        run_gsdmm()
-        elapsed_time = time.time() - start_time
-    # elif ALG = "BTM":
-
-    print("Run time: ", elapsed_time)
+    print(processed_docs[4310])
+    for index, score in sorted(lda_model[bow_corpus[4310]], key=lambda tup: -1 * tup[1]):
+        print("\nScore: {}\t \nTopic {}: {}".format(score, index, lda_model.print_topic(index, 10)))

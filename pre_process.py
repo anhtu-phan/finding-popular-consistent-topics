@@ -7,6 +7,7 @@ from gensim.parsing.preprocessing import STOPWORDS
 import re
 import json
 import os
+from numpy import asarray, save, load
 
 
 def get_twitter_account():
@@ -89,6 +90,40 @@ def process():
     df = pd.DataFrame(processed_text)
     print("len processed_text = ", len(df))
     df.to_csv("./dataset/covid19_tweets_processed.csv")
+
+
+def get_data(path, column_name):
+    df = pd.read_csv(path, delimiter=",")
+    tran = []
+    try:
+        for _, row in df.iterrows():
+            if pd.isna(row[column_name]) or pd.isnull(row[column_name]) or row[column_name] == "":
+                continue
+            texts = row[column_name].split()
+            if len(texts) > 0:
+                tran.append(texts)
+    except Exception as e:
+        print(row)
+        raise e
+    return tran
+
+
+def get_input(pre_process_type):
+    if not os.path.exists('./dataset/covid19_tweets_processed.csv'):
+        print("Running pre process data ...")
+        process()
+
+    saved_data_path = './dataset/' + pre_process_type + '.npy'
+    if not os.path.exists(saved_data_path):
+        print("Getting data ...")
+        data_path = './dataset/covid19_tweets_processed.csv'
+        processed_docs = asarray(get_data(data_path, pre_process_type))
+        save(saved_data_path, processed_docs)
+    else:
+        print("Load data ...")
+        processed_docs = load(saved_data_path, allow_pickle=True)
+
+    return processed_docs
 
 
 if __name__ == '__main__':

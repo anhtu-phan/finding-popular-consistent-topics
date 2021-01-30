@@ -94,20 +94,7 @@ def get_time_range(item_sets):
 
 @profile
 def main():
-    if not os.path.exists('./dataset/covid19_tweets_processed.csv'):
-        print("Running pre process data ...")
-        pre_process.process()
-
-    saved_data_path = './dataset/apriori/' + PRE_PROCESS_TYPE + '.npy'
-    if not os.path.exists(saved_data_path):
-        print("Getting data ...")
-        data_path = './dataset/covid19_tweets_processed.csv'
-        transactions = asarray(get_data(data_path, PRE_PROCESS_TYPE))
-        save(saved_data_path, transactions)
-    else:
-        print("Load data ...")
-        transactions = load(saved_data_path, allow_pickle=True)
-
+    transactions = pre_process.get_input(PRE_PROCESS_TYPE)
     with open("./output/" + alg + "/" + PRE_PROCESS_TYPE + "_" + str(min_sup) + "_" + str(min_conf) + ".txt", 'w') as f:
         f.write("Start time: " + str(datetime.now()) + "\n")
         if alg == 'fpg':
