@@ -1,27 +1,171 @@
-import time
+import argparse
+import os
+import pandas as pd
 import pre_process
 from gensim import corpora, models
 import gensim
+from fpgrowth_py import fpgrowth
+from pcy import pcy
+from apriori_python import apriori
+from datetime import datetime
+import utils
 
 
-ALG = "LDA"
+ALG_TOPIC = "BTM"
+ALG_SIMILAR = "fpg"
 PRE_PROCESS_TYPE = 'remove_twitter_account'
+NUM_TOPIC = 20
 
 
 def run_lda():
-    processed_docs = pre_process.get_input(PRE_PROCESS_TYPE)
+    processed_docs, mapping_date = pre_process.get_input(PRE_PROCESS_TYPE)
     dictionary = gensim.corpora.Dictionary(processed_docs)
     dictionary.filter_extremes(no_below=15, no_above=0.5, keep_n=100000)
     bow_corpus = [dictionary.doc2bow(doc) for doc in processed_docs]
 
-    tfidf = models.TfidfModel(bow_corpus)
-    corpus_tfidf = tfidf[bow_corpus]
+    # tfidf = models.TfidfModel(bow_corpus)
+    # corpus_tfidf = tfidf[bow_corpus]
 
-    lda_model = gensim.models.LdaMulticore(bow_corpus, num_topics=10, id2word=dictionary, passes=2, workers=2)
+    lda_model = gensim.models.LdaMulticore(bow_corpus, num_topics=NUM_TOPIC, id2word=dictionary, passes=2, workers=2)
 
-    for idx, topic in lda_model.print_topics(-1):
-        print('Topic: {} \nWords: {}'.format(idx, topic))
+    with open("./output/LDA/{}_topic.txt".format(PRE_PROCESS_TYPE), "w") as f:
+        for idx, topic in lda_model.print_topics(-1):
+            f.write('Topic: {} \nWords: {}\n'.format(idx, topic))
 
-    print(processed_docs[4310])
-    for index, score in sorted(lda_model[bow_corpus[4310]], key=lambda tup: -1 * tup[1]):
-        print("\nScore: {}\t \nTopic {}: {}".format(score, index, lda_model.print_topic(index, 10)))
+    topic_set = []
+    result = {"text": list(), "topic": list()}
+    for i_c, corpus in enumerate(bow_corpus):
+        topic = lda_model[corpus]
+        topic = [str(index) for index, score in topic if score >= 0.2]
+        topic_set.append(topic)
+        result["text"].append(processed_docs[i_c])
+        result["topic"].append(",".join(topic))
+
+    pd_result = pd.DataFrame(result)
+    pd_result.to_csv("./output/LDA/{}_result.csv".format(PRE_PROCESS_TYPE))
+    return topic_set, mapping_date
+
+
+def run_btm():
+    df = pd.read_csv("./dataset/covid19_tweets_processed_sort_by_date.csv")
+    mapping_date = []
+    with open('./BTM/sample-data/covid19_data.txt', 'w') as f:
+        for index, row in df.iterrows():
+            text = row[PRE_PROCESS_TYPE]
+            if pd.isna(text) or pd.isnull(text) or text == "":
+                continue
+            f.write(text+'\n')
+            mapping_date.append(row['date'])
+    os.chdir("./BTM/script")
+    os.system("sh runExample.sh "+str(NUM_TOPIC))
+    os.chdir("../..")
+    f_topic = open('./BTM/output/model/k'+str(NUM_TOPIC)+".pz_d", "r")
+    f_vocab = open('./BTM/output/voca.txt', 'r')
+    f_topic_word = open('./BTM/output/model/k'+str(NUM_TOPIC)+'.pw_z', 'r')
+    f_topic_result = open('./output/BTM/{}_topic.txt'.format(PRE_PROCESS_TYPE), 'w')
+    topic_set = []
+    vocab = {}
+
+    for line in f_vocab:
+        map_word = line.split()
+        if len(map_word) == 2:
+            vocab[int(map_word[0])] = map_word[1]
+
+    for i_t, line in enumerate(f_topic_word):
+        probs = line.split()
+        f_topic_result.write("Topic {}:\n".format(i_t))
+        word_in_topic = []
+        for i_w, prob in enumerate(probs):
+            if float(prob) >= 0.0001:
+                if i_w in vocab:
+                    word_in_topic.append('{:.5f}*"{}"'.format(float(prob), vocab[i_w]))
+        f_topic_result.write("Words: {}\n".format(" + ".join(word_in_topic)))
+    f_topic_result.close()
+
+    for line in f_topic:
+        probs = line.split()
+        topic = []
+        for i_t, prob in enumerate(probs):
+            if float(prob) >= 0.3:
+                topic.append(i_t)
+        topic_set.append(topic)
+
+    return topic_set, mapping_date
+
+
+def find_topic_popular(topic_set, mapping_date):
+    topic_set_ = []
+    for s in topic_set:
+        if len(s) > 0:
+            topic_set_.append(s)
+    if ALG_SIMILAR == 'fpg':
+        freqItemSet, rules = fpgrowth(topic_set_, minSupRatio=0.001, minConf=0.001)
+    elif ALG_SIMILAR == 'apriori':
+        itemSets, rules = apriori(topic_set_, 0.001, 0.001)
+        freqItemSet = []
+        for num, item_set in itemSets.items():
+            if num > 1:
+                freqItemSet += item_set
+    elif ALG_SIMILAR == 'pcy':
+        result = pcy(topic_set_, 0.001, 50)
+        freqItemSet = []
+        for num, val in result.items():
+            if num > 1:
+                freqItemSet += val[1]
+    else:
+        print("NOT SUPPORT THIS ALGORITHM")
+        return
+
+    m_out = {}
+    mapping = {}
+    for index, s in enumerate(freqItemSet):
+        if len(s) > 1:
+            mapping[index] = s
+
+    for i_i, item_set in mapping.items():
+        if len(item_set) > 1:
+            for i_t, topic in enumerate(topic_set):
+                if len(topic) > 1:
+                    check = True
+                    for t in item_set:
+                        if t not in topic:
+                            check = False
+                            break
+                    if check:
+                        date_obj = datetime.strptime(mapping_date[i_t], '%Y-%m-%d %H:%M:%S')
+                        if i_i not in m_out:
+                            m_out[i_i] = [date_obj, date_obj]
+                        elif (date_obj - m_out[i_i][-1]).days <= 1:
+                            m_out[i_i][-1] = date_obj
+                        else:
+                            m_out[i_i] = m_out[i_i] + [date_obj, date_obj]
+    return m_out, mapping
+
+
+def main():
+    if ALG_TOPIC == "LDA":
+        topic_set, mapping_date = run_lda()
+    elif ALG_TOPIC == "BTM":
+        topic_set, mapping_date = run_btm()
+    else:
+        print("NOT SUPPORT THIS ALGORITHM")
+        return
+
+    m_out, mapping = find_topic_popular(topic_set, mapping_date)
+    with open("./output/{}/{}_result_with_date.txt".format(ALG_TOPIC, PRE_PROCESS_TYPE), "w") as f:
+        utils.write_result_with_date(f, m_out, mapping)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Finding Popular Topics")
+    parser.add_argument("--pre_process_type", nargs="?", default="remove_twitter_account")
+    parser.add_argument("--alg_similar", nargs="?", default="fpg")
+    parser.add_argument("--alg_topic", nargs="?", default="LDA")
+    parser.add_argument("--num_topic", nargs="?", type=int, default=20)
+
+    args = parser.parse_args()
+    PRE_PROCESS_TYPE = args.pre_process_type
+    ALG_SIMILAR = args.alg_similar
+    ALG_TOPIC = args.alg_topic
+    NUM_TOPIC = args.num_topic
+    main()

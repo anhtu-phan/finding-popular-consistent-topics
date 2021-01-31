@@ -82,7 +82,8 @@ def process():
     remove_url_replace_twitter_account = documents['text'].apply(preprocess, args=(['REMOVE', 'REPLACE'],))
     remove_twitter_account_replace_url = documents['text'].apply(preprocess, args=(['REPLACE', 'REMOVE'],))
     replace_twitter_account_and_url = documents['text'].apply(preprocess, args=(['REPLACE', 'REPLACE'],))
-    processed_text = {"date": documents["date"], "remove_url": remove_url, "remove_twitter_account": remove_twitter_account,
+    processed_text = {"date": documents["date"], "remove_url": remove_url,
+                      "remove_twitter_account": remove_twitter_account,
                       "remove_url_replace_twitter_account": remove_url_replace_twitter_account,
                       "remove_twitter_account_replace_url": remove_twitter_account_replace_url,
                       "replace_twitter_account_and_url": replace_twitter_account_and_url}
@@ -95,17 +96,19 @@ def process():
 def get_data(path, column_name):
     df = pd.read_csv(path, delimiter=",")
     tran = []
+    mapping_date = []
     try:
         for _, row in df.iterrows():
             if pd.isna(row[column_name]) or pd.isnull(row[column_name]) or row[column_name] == "":
                 continue
             texts = row[column_name].split()
             if len(texts) > 0:
+                mapping_date.append(row['date'])
                 tran.append(texts)
     except Exception as e:
         print(row)
         raise e
-    return tran
+    return asarray(tran), asarray(mapping_date)
 
 
 def get_input(pre_process_type):
@@ -113,18 +116,22 @@ def get_input(pre_process_type):
         print("Running pre process data ...")
         process()
 
-    saved_data_path = './dataset/' + pre_process_type + '.npy'
-    if not os.path.exists(saved_data_path):
+    saved_data_path = './dataset/' + pre_process_type
+    if not os.path.exists(saved_data_path+".npy"):
         print("Getting data ...")
-        data_path = './dataset/covid19_tweets_processed.csv'
-        processed_docs = asarray(get_data(data_path, pre_process_type))
-        save(saved_data_path, processed_docs)
+        data_path = './dataset/covid19_tweets_processed_sort_by_date.csv'
+        processed_docs, mapping_date = get_data(data_path, pre_process_type)
+        save(saved_data_path + '.npy', processed_docs)
+        save(saved_data_path + '_mapping_date.npy', mapping_date)
     else:
         print("Load data ...")
-        processed_docs = load(saved_data_path, allow_pickle=True)
+        processed_docs = load(saved_data_path + '.npy', allow_pickle=True)
+        mapping_date = load(saved_data_path + '_mapping_date.npy', allow_pickle=True)
 
-    return processed_docs
+    return processed_docs, mapping_date
 
 
 if __name__ == '__main__':
-    process()
+    # process()
+    processed_docs = load('./dataset/remove_twitter_account.npy', allow_pickle=True)
+    # print(processed_docs[113])

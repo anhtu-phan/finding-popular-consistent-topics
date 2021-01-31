@@ -1,0 +1,6 @@
+apriori-python==1.0.4
+fpgrowth-py==1.0.0
+gensim==3.8.3
+numpy==1.17.5
+pandas==0.25.0
+nltk==3.5
