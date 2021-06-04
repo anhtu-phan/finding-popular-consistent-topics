@@ -3,8 +3,9 @@ import pre_process
 import utils
 import argparse
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from memory_profiler import profile
+import random
 
 from pcy import pcy
 from apriori_python import apriori
@@ -38,59 +39,74 @@ def write_result(f, item_set, rules, column_name):
         f.write(str(item[0]) + " -> " + str(item[1]) + ": " + str(item[2]) + "\n")
 
 
-def get_time_range(item_sets):
-    tweets = pd.read_csv("./dataset/covid19_tweets_processed_sort_by_date.csv")
-    mapping = {}
-    for index, s in enumerate(item_sets):
-        if len(s) > 1:
-            mapping[index] = s
-    m_out = {}
-    for _, row in tweets.iterrows():
-        for index, s in mapping.items():
-            if utils.check_text_exist(row[PRE_PROCESS_TYPE], s):
-                date_obj = datetime.strptime(row['date'], '%Y-%m-%d %H:%M:%S')
-                if index not in m_out:
-                    m_out[index] = [date_obj, date_obj]
-                elif (date_obj - m_out[index][-1]).days <= 1:
-                    m_out[index][-1] = date_obj
-                else:
-                    m_out[index] = m_out[index] + [date_obj, date_obj]
-    return m_out, mapping
-
-
 @profile
 def main():
-    transactions, _ = pre_process.get_input(PRE_PROCESS_TYPE)
+    start_date = datetime(2020, 7, 24)
+    stop_date = datetime(2020, 8, 30)
     with open("./output/" + alg + "/" + PRE_PROCESS_TYPE + "_" + str(min_sup) + "_" + str(min_conf) + ".txt", 'w') as f:
         f.write("Start time: " + str(datetime.now()) + "\n")
-        if alg == 'fpg':
-            start_time = time.time()
-            freqItemSet, rules = fpgrowth(transactions, minSupRatio=min_sup, minConf=min_conf)
-            run_time = time.time() - start_time
-        elif alg == "apriori":
-            start_time = time.time()
-            itemSets, rules = apriori(transactions, min_sup, min_conf)
-            run_time = time.time() - start_time
-            freqItemSet = []
-            for num, item_set in itemSets.items():
-                if num > 1:
-                    freqItemSet += item_set
-        elif alg == "pcy":
-            start_time = time.time()
-            result = pcy(transactions, min_sup, 50)
-            run_time = time.time() - start_time
-            freqItemSet = []
-            for num, val in result.items():
-                if num > 1:
-                    freqItemSet += val[1]
-        else:
-            print("NOT SUPPORT THIS ALGORITHM")
-            return
-
+        run_time = 0
+        results = []
+        max_iter = 100
+        iter_run = 0
+        while iter_run < max_iter:
+            date_bin = random.randint(2,15)
+            end_date = start_date + timedelta(days=date_bin)
+            transactions = pre_process.get_input(PRE_PROCESS_TYPE, start_date, end_date)
+            f.write(f"-------- From: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')} --------\n")
+            if alg == 'fpg':
+                start_time = time.time()
+                freqItemSet, rules = fpgrowth(transactions, minSupRatio=min_sup, minConf=min_conf)
+                run_time += (time.time() - start_time)
+            elif alg == "apriori":
+                start_time = time.time()
+                itemSets, rules = apriori(transactions, min_sup, min_conf)
+                run_time += (time.time() - start_time)
+                freqItemSet = []
+                for num, item_set in itemSets.items():
+                    if num > 1:
+                        freqItemSet += item_set
+            elif alg == "pcy":
+                start_time = time.time()
+                result = pcy(transactions, min_sup, 50)
+                run_time += (time.time() - start_time)
+                freqItemSet = []
+                for num, val in result.items():
+                    if num > 1:
+                        freqItemSet += val[1]
+            else:
+                print("NOT SUPPORT THIS ALGORITHM")
+                return
+            results.append(freqItemSet)
+            for item in freqItemSet:
+                if len(item) > 1:
+                    f.write(str(item)+"\n")
+            start_date = end_date
+            if end_date > stop_date:
+                final_result = []
+                for i in range(len(results)):
+                    for item in results[i]:
+                        check_other = 0
+                        for j in range(len(results)):
+                            if j == i:
+                                continue
+                            for item_i in results[j]:
+                                if len(item_i) == len(item):
+                                    if len(item - item_i) == 0:
+                                        check_other += 1
+                        if check_other < len(results) - 1:
+                            final_result.append(item)
+                f.write(f"Final Results: ")
+                for item in final_result:
+                    f.write(str(item)+",")
+                f.write("\n-----------------------------------------------------------\n")
+                if len(final_result) > 0:
+                    break
+                iter_run += 1
+                results = []
+                start_date = datetime(2020, 7, 24)
         f.write("End time: " + str(datetime.now()) + "\n")
         f.write("Run time: " + str(run_time) + "\n")
-        m_out, mapping = get_time_range(freqItemSet)
-        utils.write_result_with_date(f, m_out, mapping)
 
 
 if __name__ == '__main__':
@@ -105,5 +121,12 @@ if __name__ == '__main__':
     alg = args.alg
     min_sup = args.min_sup
     min_conf = args.min_conf
-
     main()
+
+    # list_min_sup = [0.02, 0.03, 0.04, 0.05]
+    # list_min_conf = [0.02, 0.03, 0.04, 0.05]
+    # for v in list_min_sup:
+    #     min_sup = v
+    #     for u in list_min_conf:
+    #         min_conf = u
+    #         main()

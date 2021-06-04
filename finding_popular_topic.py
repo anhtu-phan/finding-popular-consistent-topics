@@ -1,15 +1,14 @@
 import argparse
 import os
 import pandas as pd
-import pre_process
 from gensim import corpora, models
 import gensim
 from fpgrowth_py import fpgrowth
 from pcy import pcy
 from apriori_python import apriori
-from datetime import datetime
-import utils
-
+import pre_process
+from datetime import datetime, timedelta
+import random
 
 ALG_TOPIC = "BTM"
 ALG_SIMILAR = "fpg"
@@ -17,8 +16,8 @@ PRE_PROCESS_TYPE = 'remove_twitter_account'
 NUM_TOPIC = 20
 
 
-def run_lda():
-    processed_docs, mapping_date = pre_process.get_input(PRE_PROCESS_TYPE)
+def run_lda(start_date, end_date):
+    processed_docs = pre_process.get_input(PRE_PROCESS_TYPE, start_date, end_date)
     dictionary = gensim.corpora.Dictionary(processed_docs)
     dictionary.filter_extremes(no_below=15, no_above=0.5, keep_n=100000)
     bow_corpus = [dictionary.doc2bow(doc) for doc in processed_docs]
@@ -36,32 +35,32 @@ def run_lda():
     result = {"text": list(), "topic": list()}
     for i_c, corpus in enumerate(bow_corpus):
         topic = lda_model[corpus]
-        topic = [str(index) for index, score in topic if score >= 0.2]
+        topic = [str(index) for index, score in topic if score >= 0.35]
         topic_set.append(topic)
         result["text"].append(processed_docs[i_c])
         result["topic"].append(",".join(topic))
 
     pd_result = pd.DataFrame(result)
     pd_result.to_csv("./output/LDA/{}_result.csv".format(PRE_PROCESS_TYPE))
-    return topic_set, mapping_date
+    return topic_set
 
 
-def run_btm():
-    df = pd.read_csv("./dataset/covid19_tweets_processed_sort_by_date.csv")
-    mapping_date = []
+def run_btm(start_date, end_date):
+    df = pd.read_csv("./dataset/covid19_tweets_processed.csv")
     with open('./BTM/sample-data/covid19_data.txt', 'w') as f:
         for index, row in df.iterrows():
             text = row[PRE_PROCESS_TYPE]
-            if pd.isna(text) or pd.isnull(text) or text == "":
+            if pd.isna(text) or pd.isnull(text) or text == "" or not (
+                    start_date <= datetime.strptime(row['date'], '%Y-%m-%d %H:%M:%S') <= end_date):
                 continue
-            f.write(text+'\n')
-            mapping_date.append(row['date'])
+            f.write(text + '\n')
+
     os.chdir("./BTM/script")
-    os.system("sh runExample.sh "+str(NUM_TOPIC))
+    os.system("sh runExample.sh " + str(NUM_TOPIC))
     os.chdir("../..")
-    f_topic = open('./BTM/output/model/k'+str(NUM_TOPIC)+".pz_d", "r")
+    f_topic = open('./BTM/output/model/k' + str(NUM_TOPIC) + ".pz_d", "r")
     f_vocab = open('./BTM/output/voca.txt', 'r')
-    f_topic_word = open('./BTM/output/model/k'+str(NUM_TOPIC)+'.pw_z', 'r')
+    f_topic_word = open('./BTM/output/model/k' + str(NUM_TOPIC) + '.pw_z', 'r')
     f_topic_result = open('./output/BTM/{}_topic.txt'.format(PRE_PROCESS_TYPE), 'w')
     topic_set = []
     vocab = {}
@@ -76,7 +75,7 @@ def run_btm():
         f_topic_result.write("Topic {}:\n".format(i_t))
         word_in_topic = []
         for i_w, prob in enumerate(probs):
-            if float(prob) >= 0.0001:
+            if float(prob) >= 0.005:
                 if i_w in vocab:
                     word_in_topic.append('{:.5f}*"{}"'.format(float(prob), vocab[i_w]))
         f_topic_result.write("Words: {}\n".format(" + ".join(word_in_topic)))
@@ -90,10 +89,10 @@ def run_btm():
                 topic.append(i_t)
         topic_set.append(topic)
 
-    return topic_set, mapping_date
+    return topic_set
 
 
-def find_topic_popular(topic_set, mapping_date):
+def find_topic_popular(topic_set):
     topic_set_ = []
     for s in topic_set:
         if len(s) > 0:
@@ -116,44 +115,58 @@ def find_topic_popular(topic_set, mapping_date):
         print("NOT SUPPORT THIS ALGORITHM")
         return
 
-    m_out = {}
-    mapping = {}
-    for index, s in enumerate(freqItemSet):
-        if len(s) > 1:
-            mapping[index] = s
-
-    for i_i, item_set in mapping.items():
-        if len(item_set) > 1:
-            for i_t, topic in enumerate(topic_set):
-                if len(topic) > 1:
-                    check = True
-                    for t in item_set:
-                        if t not in topic:
-                            check = False
-                            break
-                    if check:
-                        date_obj = datetime.strptime(mapping_date[i_t], '%Y-%m-%d %H:%M:%S')
-                        if i_i not in m_out:
-                            m_out[i_i] = [date_obj, date_obj]
-                        elif (date_obj - m_out[i_i][-1]).days <= 1:
-                            m_out[i_i][-1] = date_obj
-                        else:
-                            m_out[i_i] = m_out[i_i] + [date_obj, date_obj]
-    return m_out, mapping
+    return freqItemSet
 
 
 def main():
-    if ALG_TOPIC == "LDA":
-        topic_set, mapping_date = run_lda()
-    elif ALG_TOPIC == "BTM":
-        topic_set, mapping_date = run_btm()
-    else:
-        print("NOT SUPPORT THIS ALGORITHM")
-        return
-
-    m_out, mapping = find_topic_popular(topic_set, mapping_date)
+    start_date = datetime(2020, 7, 24)
+    stop_date = datetime(2020, 8, 30)
     with open("./output/{}/{}_result_with_date.txt".format(ALG_TOPIC, PRE_PROCESS_TYPE), "w") as f:
-        utils.write_result_with_date(f, m_out, mapping)
+        results = []
+        max_iter = 20
+        iter_run = 0
+        while iter_run < max_iter:
+            date_bin = random.randint(2, 15)
+            end_date = start_date + timedelta(days=date_bin)
+            if ALG_TOPIC == "LDA":
+                topic_set = run_lda(start_date, end_date)
+            elif ALG_TOPIC == "BTM":
+                topic_set = run_btm(start_date, end_date)
+            else:
+                print("NOT SUPPORT THIS ALGORITHM")
+                return
+
+            f.write(f"-------------- From: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')} --------------\n")
+            freqItemSet = find_topic_popular(topic_set)
+            results.append(freqItemSet)
+            for item in freqItemSet:
+                if len(item) > 1:
+                    f.write(str(item) + "\n")
+
+            start_date = end_date
+            if end_date > stop_date:
+                final_result = []
+                for i in range(len(results)):
+                    for item in results[i]:
+                        check_other = 0
+                        for j in range(len(results)):
+                            if j == i:
+                                continue
+                            for item_i in results[j]:
+                                if len(item_i) == len(item):
+                                    if len(item - item_i) == 0:
+                                        check_other += 1
+                        if check_other < len(results) - 1:
+                            final_result.append(item)
+                f.write(f"Final Results: ")
+                for item in final_result:
+                    f.write(str(item) + ",")
+                f.write("\n-----------------------------------------------------------\n")
+                if len(final_result) > 0:
+                    break
+                iter_run += 1
+                results = []
+                start_date = datetime(2020, 7, 24)
 
 
 if __name__ == '__main__':

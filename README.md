@@ -2,6 +2,7 @@
 
 ## How to run
 ### Requirements
+    python3.6
 
     pip install -r requirements.txt
 
@@ -20,6 +21,7 @@
   + `pcy`: PCY algorithm
   + `apriori`: A-Priori algrithm
 - `min_sup`, `min_conf`: support and confidence parameter of fiding similar item set algorithm
+- The result in `output` folder
 
 ### Run finding popular topics
 
@@ -34,3 +36,4 @@
   + `LDA`: Latent Dirichlet Allocation
   + `BTM`: Biterm topic model
 - `num_topic`: number of topic
+- The results in `output` folder

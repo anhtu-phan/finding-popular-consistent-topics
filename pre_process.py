@@ -8,6 +8,7 @@ import re
 import json
 import os
 from numpy import asarray, save, load
+from datetime import datetime
 
 
 def get_twitter_account():
@@ -89,46 +90,44 @@ def process():
                       "replace_twitter_account_and_url": replace_twitter_account_and_url}
 
     df = pd.DataFrame(processed_text)
+    df = df.sort_values(by=['date'])
     print("len processed_text = ", len(df))
     df.to_csv("./dataset/covid19_tweets_processed.csv")
 
 
-def get_data(path, column_name):
+def get_data(path, column_name, start_date, end_date):
     df = pd.read_csv(path, delimiter=",")
     tran = []
-    mapping_date = []
     try:
         for _, row in df.iterrows():
-            if pd.isna(row[column_name]) or pd.isnull(row[column_name]) or row[column_name] == "":
+            if pd.isna(row[column_name]) or pd.isnull(row[column_name]) or row[column_name] == "" \
+                    or not (start_date <= datetime.strptime(row['date'], '%Y-%m-%d %H:%M:%S') <= end_date):
                 continue
             texts = row[column_name].split()
             if len(texts) > 0:
-                mapping_date.append(row['date'])
                 tran.append(texts)
     except Exception as e:
         print(row)
         raise e
-    return asarray(tran), asarray(mapping_date)
+    return asarray(tran)
 
 
-def get_input(pre_process_type):
-    if not os.path.exists('./dataset/covid19_tweets_processed.csv'):
+def get_input(pre_process_type, start_date, end_date):
+    data_path = './dataset/covid19_tweets_processed.csv'
+    if not os.path.exists(data_path):
         print("Running pre process data ...")
-        process()
+        _ = process()
 
     saved_data_path = './dataset/' + pre_process_type
     if not os.path.exists(saved_data_path+".npy"):
         print("Getting data ...")
-        data_path = './dataset/covid19_tweets_processed_sort_by_date.csv'
-        processed_docs, mapping_date = get_data(data_path, pre_process_type)
+        processed_docs = get_data(data_path, pre_process_type, start_date, end_date)
         save(saved_data_path + '.npy', processed_docs)
-        save(saved_data_path + '_mapping_date.npy', mapping_date)
     else:
         print("Load data ...")
         processed_docs = load(saved_data_path + '.npy', allow_pickle=True)
-        mapping_date = load(saved_data_path + '_mapping_date.npy', allow_pickle=True)
 
-    return processed_docs, mapping_date
+    return processed_docs
 
 
 if __name__ == '__main__':
