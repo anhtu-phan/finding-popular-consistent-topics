@@ -35,7 +35,7 @@ def run_lda(start_date, end_date):
     result = {"text": list(), "topic": list()}
     for i_c, corpus in enumerate(bow_corpus):
         topic = lda_model[corpus]
-        topic = [str(index) for index, score in topic if score >= 0.35]
+        topic = [str(index) for index, score in topic if score >= 0.2]
         topic_set.append(topic)
         result["text"].append(processed_docs[i_c])
         result["topic"].append(",".join(topic))
@@ -85,7 +85,8 @@ def run_btm(start_date, end_date):
         probs = line.split()
         topic = []
         for i_t, prob in enumerate(probs):
-            if float(prob) >= 0.3:
+            print(f"prob of topic is {prob}")
+            if float(prob) >= 0.2:
                 topic.append(i_t)
         topic_set.append(topic)
 
@@ -98,15 +99,15 @@ def find_topic_popular(topic_set):
         if len(s) > 0:
             topic_set_.append(s)
     if ALG_SIMILAR == 'fpg':
-        freqItemSet, rules = fpgrowth(topic_set_, minSupRatio=0.001, minConf=0.001)
+        freqItemSet, rules = fpgrowth(topic_set_, minSupRatio=0.0001, minConf=0.0001)
     elif ALG_SIMILAR == 'apriori':
-        itemSets, rules = apriori(topic_set_, 0.001, 0.001)
+        itemSets, rules = apriori(topic_set_, 0.0001, 0.0001)
         freqItemSet = []
         for num, item_set in itemSets.items():
             if num > 1:
                 freqItemSet += item_set
     elif ALG_SIMILAR == 'pcy':
-        result = pcy(topic_set_, 0.001, 50)
+        result = pcy(topic_set_, 0.0001, 50)
         freqItemSet = []
         for num, val in result.items():
             if num > 1:
@@ -123,10 +124,10 @@ def main():
     stop_date = datetime(2020, 8, 30)
     with open("./output/{}/{}_result_with_date.txt".format(ALG_TOPIC, PRE_PROCESS_TYPE), "w") as f:
         results = []
-        max_iter = 20
+        max_iter = 10
         iter_run = 0
         while iter_run < max_iter:
-            date_bin = random.randint(2, 15)
+            date_bin = random.randint(2, 7)
             end_date = start_date + timedelta(days=date_bin)
             if ALG_TOPIC == "LDA":
                 topic_set = run_lda(start_date, end_date)
