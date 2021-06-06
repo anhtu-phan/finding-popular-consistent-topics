@@ -6,6 +6,7 @@ import time
 from datetime import datetime, timedelta
 from memory_profiler import profile
 import random
+import os
 
 from pcy import pcy
 from apriori_python import apriori
@@ -125,6 +126,12 @@ if __name__ == '__main__':
     alg = args.alg
     min_sup = args.min_sup
     min_conf = args.min_conf
+    if not os.path.exists("./output"):
+        os.makedirs("output/apriori")
+        os.makedirs("output/BTM")
+        os.makedirs("output/fpg")
+        os.makedirs("output/LDA")
+        os.makedirs("output/pcy")
     main()
 
     # list_min_sup = [0.02, 0.03, 0.04, 0.05]

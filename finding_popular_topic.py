@@ -181,4 +181,10 @@ if __name__ == '__main__':
     ALG_SIMILAR = args.alg_similar
     ALG_TOPIC = args.alg_topic
     NUM_TOPIC = args.num_topic
+    if not os.path.exists("./output"):
+        os.makedirs("output/apriori")
+        os.makedirs("output/BTM")
+        os.makedirs("output/fpg")
+        os.makedirs("output/LDA")
+        os.makedirs("output/pcy")
     main()
