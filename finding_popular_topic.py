@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import argparse
 import os
 import pandas as pd
@@ -47,13 +48,13 @@ def run_lda(start_date, end_date):
 
 def run_btm(start_date, end_date):
     df = pd.read_csv("./dataset/covid19_tweets_processed.csv")
-    with open('./BTM/sample-data/covid19_data.txt', 'w') as f:
+    with open('./BTM/sample-data/covid19_data.txt', 'w', encoding='utf-8') as f:
         for index, row in df.iterrows():
             text = row[PRE_PROCESS_TYPE]
             if pd.isna(text) or pd.isnull(text) or text == "" or not (
                     start_date <= datetime.strptime(row['date'], '%Y-%m-%d %H:%M:%S') <= end_date):
                 continue
-            f.write(text + '\n')
+            f.write(text+ "\n")
 
     os.chdir("./BTM/script")
     os.system("sh runExample.sh " + str(NUM_TOPIC))
@@ -181,6 +182,8 @@ if __name__ == '__main__':
     ALG_SIMILAR = args.alg_similar
     ALG_TOPIC = args.alg_topic
     NUM_TOPIC = args.num_topic
+    if not os.path.exists("./BTM"):
+        os.system("git clone https://github.com/xiaohuiyan/BTM.git")
     if not os.path.exists("./output"):
         os.makedirs("output/apriori")
         os.makedirs("output/BTM")
