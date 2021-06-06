@@ -43,17 +43,15 @@ def write_result(f, item_set, rules, column_name):
 def main():
     start_date = datetime(2020, 7, 24)
     stop_date = datetime(2020, 8, 30)
-    # with open("./output/" + alg + "/" + PRE_PROCESS_TYPE + "_" + str(min_sup) + "_" + str(min_conf) + ".txt", 'w') as f:
-    with open("./output/" + alg + "/time_report_" + PRE_PROCESS_TYPE + "_" + str(min_sup) + "_" + str(min_conf) + ".txt", 'w') as f:
+    with open("./output/" + alg + "/" + PRE_PROCESS_TYPE + "_" + str(min_sup) + "_" + str(min_conf) + ".txt", 'w') as f:
         f.write("Start time: " + str(datetime.now()) + "\n")
         run_time = 0
         avg_run_time = 0
         results = []
-        max_iter = 3
+        max_iter = 20
         iter_run = 0
         while iter_run < max_iter:
-            date_bin = 7
-            # date_bin = random.randint(2,15)
+            date_bin = random.randint(2,15)
             end_date = start_date + timedelta(days=date_bin)
             transactions = pre_process.get_input(PRE_PROCESS_TYPE, start_date, end_date)
             f.write(f"-------- From: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')} --------\n")
@@ -80,38 +78,37 @@ def main():
             else:
                 print("NOT SUPPORT THIS ALGORITHM")
                 return
-            # results.append(freqItemSet)
-            # for item in freqItemSet:
-            #     if len(item) > 1:
-            #         f.write(str(item)+"\n")
+            results.append(freqItemSet)
+            for item in freqItemSet:
+                if len(item) > 1:
+                    f.write(str(item)+"\n")
             start_date = end_date
             if end_date > stop_date:
                 f.write("Run time: " + str(run_time) + "\n")
                 avg_run_time += run_time
                 run_time = 0
-                # break
-            #     final_result = []
-            #     for i in range(len(results)):
-            #         for item in results[i]:
-            #             check_other = 0
-            #             for j in range(len(results)):
-            #                 if j == i:
-            #                     continue
-            #                 for item_i in results[j]:
-            #                     if len(item_i) == len(item):
-            #                         if len(item - item_i) == 0:
-            #                             check_other += 1
-            #             if check_other < len(results) - 1:
-            #                 final_result.append(item)
-            #     f.write(f"Final Results: ")
-            #     for item in final_result:
-            #         f.write(str(item)+",")
-            #     f.write("\n-----------------------------------------------------------\n")
-            #     if len(final_result) > 0:
-            #         break
+                final_result = []
+                for i in range(len(results)):
+                    for item in results[i]:
+                        check_other = 0
+                        for j in range(len(results)):
+                            if j == i:
+                                continue
+                            for item_i in results[j]:
+                                if len(item_i) == len(item):
+                                    if len(item - item_i) == 0:
+                                        check_other += 1
+                        if check_other < len(results) - 1:
+                            final_result.append(item)
+                f.write(f"Final Results: ")
+                for item in final_result:
+                    f.write(str(item)+",")
+                f.write("\n-----------------------------------------------------------\n")
+                if len(final_result) > 0:
+                    break
                 iter_run += 1
-            #     results = []
-            #     start_date = datetime(2020, 7, 24)
+                results = []
+                start_date = datetime(2020, 7, 24)
         f.write("End time: " + str(datetime.now()) + "\n")
         f.write("Avg Run time: " + str(avg_run_time/max_iter) + "\n")
 

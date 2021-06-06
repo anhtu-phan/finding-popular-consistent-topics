@@ -85,7 +85,6 @@ def run_btm(start_date, end_date):
         probs = line.split()
         topic = []
         for i_t, prob in enumerate(probs):
-            print(f"prob of topic is {prob}")
             if float(prob) >= 0.2:
                 topic.append(i_t)
         topic_set.append(topic)
@@ -124,7 +123,7 @@ def main():
     stop_date = datetime(2020, 8, 30)
     with open("./output/{}/{}_result_with_date.txt".format(ALG_TOPIC, PRE_PROCESS_TYPE), "w") as f:
         results = []
-        max_iter = 10
+        max_iter = 20
         iter_run = 0
         while iter_run < max_iter:
             date_bin = random.randint(2, 7)
