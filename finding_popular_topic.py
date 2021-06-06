@@ -11,7 +11,7 @@ import pre_process
 from datetime import datetime, timedelta
 import random
 
-ALG_TOPIC = "BTM"
+ALG_TOPIC = "LDA"
 ALG_SIMILAR = "fpg"
 PRE_PROCESS_TYPE = 'remove_twitter_account'
 NUM_TOPIC = 20
