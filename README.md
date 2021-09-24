@@ -1,4 +1,8 @@
 # finding-popular-consistent-topics
+Covid19 is a global epidemic that affects many aspects of society and is discussed a lot on social network such as Facebook, Twitter. What topics become popular together? And these are topics that are discussed frequently or only appear in a certain period of time? The purpose of this project is finding popular consistent
+topics in each time period from the [COVID19 Tweets dataset](https://www.kaggle.com/gpreda/covid19-tweets). This project will implement two approaches to finding popular consistent topics: 
+ - The first approach is trying some finding frequent items set algorithms to find words appear together in many tweets in a time period. 
+ - The second approach is apply some topic modeling methods to find latent topic in each tweets and then find topics become together in a time period by applying some finding frequent items set algorithms.
 
 ## How to run
 ### Requirements
@@ -6,7 +10,7 @@
 
     pip install -r requirements.txt
 
-### Run finding similar item sets
+### Run finding similar item sets (first approach)
 
     python finding_similar_items.py [--pre_process_type remove_twitter_account] [--alg fpg] [--min_sup 0.01] [--min_conf 0.01]
 
@@ -23,7 +27,7 @@
 - `min_sup`, `min_conf`: support and confidence parameter of fiding similar item set algorithm
 - The result in `output` folder
 
-### Run finding popular topics
+### Run finding popular topics (second approach)
 
     python finding_popular_topic.py [--pre_process_type remove_twitter_account] [--alg_similar fpg] [--alg_topic LDA] [--num_topic 20]
 
